@@ -21,7 +21,7 @@ namespace KTXManagement.Demo.Controllers
             _aiService = aiService;
         }
 
-        public async Task<IActionResult> Index()
+        public async Task Index()
         {
             var vm = new ThongKeViewModel
             {
