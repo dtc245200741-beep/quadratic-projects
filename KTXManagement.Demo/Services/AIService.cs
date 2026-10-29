@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using KTXManagement.Demo.Data;
 using KTXManagement.Demo.Models;
 using Microsoft.EntityFrameworkCore;
@@ -44,10 +45,16 @@ namespace KTXManagement.Demo.Services
             if (string.IsNullOrWhiteSpace(cauHoi))
                 return "Bạn vui lòng nhập câu hỏi để mình hỗ trợ nhé.";
 
+            if (YeuCauThongTinCaNhanSinhVienKhac(cauHoi))
+                return "Mình chỉ có thể tra cứu thông tin cá nhân của tài khoản sinh viên đang đăng nhập, không thể cung cấp dữ liệu của sinh viên khác.";
+
             // Bước 1: các câu hỏi "cá nhân" (công nợ của tôi, phòng của tôi...) luôn được
             // trả lời trực tiếp từ dữ liệu thật của đúng người hỏi, không giao cho AI suy đoán.
             var traLoiCaNhan = await TraLoiCauHoiCaNhanAsync(cauHoi, nguoiDung);
             if (traLoiCaNhan != null) return traLoiCaNhan;
+
+            var traLoiNoiQuyVaDangKy = TraLoiNoiQuyVaDangKy(cauHoi);
+            if (traLoiNoiQuyVaDangKy != null) return traLoiNoiQuyVaDangKy;
 
             // Bước 2: câu hỏi chung về hệ thống -> build ngữ cảnh dữ liệu + gọi LLM (nếu có key)
             var systemPrompt = await XayDungSystemPromptAsync(nguoiDung);
@@ -60,6 +67,67 @@ namespace KTXManagement.Demo.Services
 
             // Bước 3: fallback rule-based nếu không có API key hoặc gọi API lỗi
             return TraLoiRuleBased(cauHoi, nguoiDung);
+        }
+
+        private static bool YeuCauThongTinCaNhanSinhVienKhac(string cauHoi)
+        {
+            var cauHoiLower = cauHoi.ToLowerInvariant();
+            var yeuCauDuLieuCaNhan =
+                cauHoiLower.Contains("công nợ") ||
+                cauHoiLower.Contains("dư nợ") ||
+                cauHoiLower.Contains("phòng của") ||
+                cauHoiLower.Contains("đang ở phòng") ||
+                cauHoiLower.Contains("thông tin cá nhân") ||
+                cauHoiLower.Contains("thông tin sinh viên") ||
+                cauHoiLower.Contains("hồ sơ sinh viên") ||
+                cauHoiLower.Contains("số điện thoại") ||
+                cauHoiLower.Contains("email");
+            var nhacSinhVienKhac =
+                cauHoiLower.Contains("sinh viên khác") ||
+                cauHoiLower.Contains("của sinh viên") ||
+                Regex.IsMatch(cauHoiLower, @"\b(?:sv|mssv)\s*[-:]?\s*\d+\b");
+
+            return yeuCauDuLieuCaNhan && nhacSinhVienKhac;
+        }
+
+        private static string? TraLoiNoiQuyVaDangKy(string cauHoi)
+        {
+            var cauHoiLower = cauHoi.ToLowerInvariant();
+            var hoiDangKy =
+                cauHoiLower.Contains("đăng ký ở") ||
+                cauHoiLower.Contains("đăng ký nội trú") ||
+                cauHoiLower.Contains("đăng ký phòng") ||
+                cauHoiLower.Contains("làm sao để ở ktx");
+            var hoiNoiQuy =
+                cauHoiLower.Contains("nội quy") ||
+                cauHoiLower.Contains("quy định");
+            var dangHoiCachGuiPhanAnh =
+                cauHoiLower.Contains("phản ánh") ||
+                cauHoiLower.Contains("gửi") ||
+                cauHoiLower.Contains("báo ");
+
+            if (hoiNoiQuy && dangHoiCachGuiPhanAnh)
+                hoiNoiQuy = false;
+
+            if (!hoiDangKy && !hoiNoiQuy)
+                return null;
+
+            var traLoi = new StringBuilder();
+
+            if (hoiNoiQuy)
+            {
+                traLoi.Append("Hiện hệ thống chưa có văn bản nội quy KTX được xác thực để tra cứu. Vui lòng liên hệ Quản lý KTX để nhận quy định chính thức.");
+            }
+
+            if (hoiDangKy)
+            {
+                if (traLoi.Length > 0)
+                    traLoi.AppendLine().AppendLine();
+
+                traLoi.Append("Theo luồng hiện có, sinh viên đăng nhập và gửi yêu cầu ở KTX. Trang gửi yêu cầu kiểm tra trạng thái yêu cầu đang chờ duyệt, đã duyệt hoặc đang ở; yêu cầu mới được ghi nhận ở trạng thái chờ duyệt để Quản lý KTX xử lý và xếp phòng/giường.");
+            }
+
+            return traLoi.ToString();
         }
 
         private async Task<string?> TraLoiCauHoiCaNhanAsync(string cauHoi, TaiKhoan? nguoiDung)

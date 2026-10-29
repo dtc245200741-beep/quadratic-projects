@@ -14,7 +14,11 @@
         </div>
         <form id="ktx-chat-form" class="ktx-chat-input">
             @antiForgeryToken
-            <input type="text" id="ktx-chat-input" placeholder="Nhập câu hỏi..." autocomplete="off" />
+           <input type="text"
+       id="ktx-chat-input"
+       placeholder="Nhập câu hỏi..."
+       autocomplete="off"
+       maxlength="1000" />
             <button type="submit" class="btn btn-primary btn-sm">Gửi</button>
         </form>
     </div>
@@ -60,9 +64,27 @@
                     headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token },
                     body: JSON.stringify({ message: cauHoi })
                 });
-                const data = await res.json();
-                dangGoi.remove();
-                themTinNhan(data.reply, true);
+              
+const data = await res.json().catch(() => null);
+dangGoi.remove();
+
+if (!res.ok) {
+    themTinNhan(
+        typeof data?.reply === 'string'
+            ? data.reply
+            : 'Không thể xử lý câu hỏi. Vui lòng thử lại.',
+        true
+    );
+    return;
+}
+
+if (typeof data?.reply !== 'string') {
+    themTinNhan('Phản hồi từ máy chủ không hợp lệ. Vui lòng thử lại.', true);
+    return;
+}
+
+themTinNhan(data.reply, true);
+
             } catch (err) {
                 dangGoi.remove();
                 themTinNhan('Xin lỗi, đã có lỗi xảy ra khi gọi trợ lý AI. Vui lòng thử lại.', true);

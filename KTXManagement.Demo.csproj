@@ -1,3 +1,4 @@
+
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
@@ -9,6 +10,13 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="8.0.10" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="KTXManagement.Demo/**/*.cs" />
+    <Content Remove="KTXManagement.Demo/**/*" />
+    <EmbeddedResource Remove="KTXManagement.Demo/**/*" />
+    <None Remove="KTXManagement.Demo/**/*" />
   </ItemGroup>
 
 </Project>

@@ -1,13 +1,11 @@
-using KTXManagement.Demo.Data;
+﻿using KTXManagement.Demo.Data;
 using KTXManagement.Demo.Models.ViewModels;
 using KTXManagement.Demo.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace KTXManagement.Demo.Controllers
 {
-    // Tính năng AI Hỏi-Đáp (Chatbot) - trả lời dựa trên đúng tri thức/dữ liệu của dự án KTX
     [Authorize]
     public class ChatController : Controller
     {
@@ -21,16 +19,51 @@ namespace KTXManagement.Demo.Controllers
         }
 
         [HttpGet]
-        public IActionResult Index() => View();
+        public IActionResult Index()
+        {
+            return View();
+        }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Ask([FromBody] ChatRequest request)
+        public async Task<IActionResult> Ask([FromBody] ChatRequest? request)
         {
+            if (request == null)
+            {
+                return BadRequest(new ChatResponse
+                {
+                    Reply = "Yeu cau khong hop le."
+                });
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Message))
+            {
+                return BadRequest(new ChatResponse
+                {
+                    Reply = "Vui long nhap cau hoi."
+                });
+            }
+
+            if (request.Message.Length > ChatRequest.MaxMessageLength)
+            {
+                return BadRequest(new ChatResponse
+                {
+                    Reply = $"Cau hoi khong duoc vuot qua {ChatRequest.MaxMessageLength} ky tu."
+                });
+            }
+
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(new ChatResponse
+                {
+                    Reply = "Du lieu cau hoi khong hop le."
+                });
+            }
+
             var taiKhoanId = User.GetTaiKhoanId();
             var taiKhoan = await _db.TaiKhoans.FindAsync(taiKhoanId);
-
             var traLoi = await _aiService.TraLoiAsync(request.Message, taiKhoan);
+
             return Json(new ChatResponse { Reply = traLoi });
         }
     }

@@ -12,10 +12,16 @@ namespace KTXManagement.Demo.Models.ViewModels
         public string MatKhau { get; set; } = string.Empty;
     }
 
+    
     public class ChatRequest
-    {
+{
+    public const int MaxMessageLength = 1000;
+
+        [Required(ErrorMessage = "Vui lòng nhập câu hỏi.")]
+        [StringLength(MaxMessageLength, ErrorMessage = "Câu hỏi không được vượt quá 1000 ký tự.")]
         public string Message { get; set; } = string.Empty;
-    }
+}
+
 
     public class ChatResponse
     {
